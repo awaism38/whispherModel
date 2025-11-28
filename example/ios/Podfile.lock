@@ -1602,6 +1602,27 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNSound (0.13.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.10.14.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - SocketRocket (0.7.1)
   - whisper-rn (0.5.2):
     - DoubleConversion
@@ -1721,6 +1742,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNSound (from `../node_modules/react-native-sound`)
   - whisper-rn (from `../..`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -1862,6 +1884,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-fs"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNSound:
+    :path: "../node_modules/react-native-sound"
   whisper-rn:
     :path: "../.."
   Yoga:
@@ -1934,6 +1958,7 @@ SPEC CHECKSUMS:
   ReactCommon: 300d8d9c5cb1a6cd79a67cf5d8f91e4d477195f9
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: 9c8bf98209e658e1ceb13026f176e4ede1f24491
+  RNSound: 7a67e0ef7d7ef6fd320120390ee450076fe19b92
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   whisper-rn: e5e5279b360231d50f5e17ce485879f4bb096638
   Yoga: feb4910aba9742cfedc059e2b2902e22ffe9954a
