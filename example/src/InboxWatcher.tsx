@@ -3,7 +3,6 @@ import { ScrollView, View, Text, StyleSheet } from 'react-native'
 import RNFS from 'react-native-fs'
 import { initWhisper } from '../../src'
 import type { WhisperContext } from '../../src'
-import contextOpts from './context-opts'
 import { Button } from './Button'
 import {
   ensureInboxDirs,
@@ -13,6 +12,7 @@ import {
   toTimestamp,
 } from './util'
 import { InboxWatcher } from './watchers/InboxWatcher'
+import { writeTranscriptJson } from './transcript-writer'
 
 type LogEntryInput =
   | { kind: 'plain'; text: string }
@@ -32,6 +32,7 @@ type TranscriptEntry = {
   text?: string
   error?: string
   durationMs?: number
+  jsonPath?: string
 }
 
 const styles = StyleSheet.create({
@@ -90,10 +91,9 @@ export default function InboxWatcherScreen() {
   const pushLog = useCallback(
     (entry: LogEntryInput) => {
       setLogs((prev) => {
-        const next: LogEntry[] = [
-          ...prev,
-          { id: logIdRef.current++, ...entry },
-        ]
+        const nextId = logIdRef.current
+        logIdRef.current += 1
+        const next: LogEntry[] = [...prev, { id: nextId, ...entry }]
         if (next.length > logsLimit) {
           next.splice(0, next.length - logsLimit)
         }
@@ -116,6 +116,7 @@ export default function InboxWatcherScreen() {
       }
       setActiveFile(filePath)
       appendLog('[Watcher] processing', filePath)
+      let currentFilePath = filePath
       try {
         const start = Date.now()
         const { promise } = ctx.transcribe(filePath, {
@@ -125,7 +126,7 @@ export default function InboxWatcherScreen() {
           tokenTimestamps: true,
         })
         const { result, segments } = await promise
-        if (segments?.length) {
+        if ((segments?.length ?? 0) > 0) {
           const timelineSegments = segments.map((segment) => ({
             start: toTimestamp(segment.t0, true),
             end: toTimestamp(segment.t1, true),
@@ -145,7 +146,7 @@ export default function InboxWatcherScreen() {
                 start: toTimestamp(token.t0 ?? token.t ?? segment.t0, true),
                 end: toTimestamp(token.t1 ?? token.tEnd ?? segment.t1, true),
                 text:
-                  typeof token.text === 'string' && token.text.trim().length
+                  typeof token.text === 'string' && token.text.trim().length > 0
                     ? token.text
                     : '<blank>',
               })) ?? []
@@ -165,21 +166,8 @@ export default function InboxWatcherScreen() {
           result ||
           ''
         const durationMs = Date.now() - start
-        const entry: TranscriptEntry = {
-          file: filePath,
-          status: 'success',
-          text: combinedText,
-          durationMs,
-        }
-        setTranscripts((prev) => {
-          const next = [entry, ...prev]
-          if (next.length > transcriptsLimit) {
-            next.length = transcriptsLimit
-          }
-          return next
-        })
-        appendLog('[Watcher] success', filePath)
-        pushLog({ kind: 'transcript', text: combinedText || '(empty)' })
+        let processedFilePath: string | null = null
+        let transcriptJsonPath: string | null = null
         let bytes = 0
         try {
           const info = await RNFS.stat(filePath)
@@ -187,19 +175,35 @@ export default function InboxWatcherScreen() {
         } catch (statError) {
           appendLog('[Watcher] stat failed', String(statError))
         }
-        await moveFileToProcessed(filePath, appendLog)
-        setProcessedCount((prev) => prev + 1)
-        if (bytes > 0) {
-          setProcessedBytes((prev) => prev + bytes)
+
+        processedFilePath = await moveFileToProcessed(filePath, appendLog)
+        currentFilePath = processedFilePath
+
+        try {
+          const jsonResult = await writeTranscriptJson({
+            originalFilePath: filePath,
+            processedFilePath,
+            combinedText,
+            segments,
+            log: appendLog,
+          })
+          transcriptJsonPath = jsonResult.jsonPath
+          pushLog({
+            kind: 'plain',
+            text: `[Watcher] transcript JSON saved → ${jsonResult.jsonPath}`,
+          })
+        } catch (jsonError) {
+          appendLog('[Watcher] failed to save JSON', String(jsonError))
+          throw jsonError
         }
-      } catch (error: any) {
-        const message = error?.message ?? String(error)
+
         const entry: TranscriptEntry = {
-          file: filePath,
-          status: 'error',
-          error: message,
+          file: processedFilePath ?? currentFilePath,
+          status: 'success',
+          text: combinedText,
+          durationMs,
+          jsonPath: transcriptJsonPath ?? undefined,
         }
-        appendLog('[Watcher] failed', filePath, message)
         setTranscripts((prev) => {
           const next = [entry, ...prev]
           if (next.length > transcriptsLimit) {
@@ -207,12 +211,33 @@ export default function InboxWatcherScreen() {
           }
           return next
         })
-        await moveFileToFailed(filePath, appendLog)
+        appendLog('[Watcher] success', processedFilePath ?? filePath)
+        pushLog({ kind: 'transcript', text: combinedText || '(empty)' })
+        setProcessedCount((prev) => prev + 1)
+        if (bytes > 0) {
+          setProcessedBytes((prev) => prev + bytes)
+        }
+      } catch (error: any) {
+        const message = error?.message ?? String(error)
+        const entry: TranscriptEntry = {
+          file: currentFilePath,
+          status: 'error',
+          error: message,
+        }
+        appendLog('[Watcher] failed', currentFilePath, message)
+        setTranscripts((prev) => {
+          const next = [entry, ...prev]
+          if (next.length > transcriptsLimit) {
+            next.length = transcriptsLimit
+          }
+          return next
+        })
+        await moveFileToFailed(currentFilePath, appendLog)
       } finally {
         setActiveFile(null)
       }
     },
-    [appendLog],
+    [appendLog, pushLog],
   )
 
   useEffect(() => {
@@ -255,7 +280,7 @@ export default function InboxWatcherScreen() {
     const start = Date.now()
     const ctx = await initWhisper({
       filePath: require('../assets/ggml-base.bin'),
-      ...contextOpts,
+      useGpu: true,
     })
     const duration = Date.now() - start
     whisperContextRef.current = ctx
@@ -281,24 +306,16 @@ export default function InboxWatcherScreen() {
           onPress={isWatching ? stopWatcher : startWatcher}
         />
         <Text style={styles.stateText}>
-          Watcher:
-          {' '}
-          {isWatching ? 'running' : 'stopped'}
+          {`Watcher: ${isWatching ? 'running' : 'stopped'}`}
         </Text>
         <Text style={styles.stateText}>
-          Active file:
-          {' '}
-          {activeFile ?? 'idle'}
+          {`Active file: ${activeFile ?? 'idle'}`}
         </Text>
         <Text style={styles.stateText}>
-          Files processed:
-          {' '}
-          {processedCount}
+          {`Files processed: ${processedCount}`}
         </Text>
         <Text style={styles.stateText}>
-          Data processed:
-          {' '}
-          {formatBytes(processedBytes)}
+          {`Data processed: ${formatBytes(processedBytes)}`}
         </Text>
 
         <Text style={styles.sectionTitle}>Transcripts</Text>
@@ -309,19 +326,19 @@ export default function InboxWatcherScreen() {
           <View key={`${entry.file}-${index}`} style={styles.transcriptItem}>
             <Text style={styles.transcriptFile}>{entry.file}</Text>
             <Text style={styles.transcriptResult}>
-              Status:
-              {' '}
-              {entry.status}
-              {entry.durationMs ? ` (${entry.durationMs}ms)` : ''}
+              {`Status: ${entry.status}${entry.durationMs ? ` (${entry.durationMs}ms)` : ''}`}
             </Text>
             {entry.status === 'success' && entry.text ? (
               <Text style={styles.transcriptResult}>{entry.text}</Text>
             ) : null}
             {entry.status === 'error' && entry.error ? (
               <Text style={styles.transcriptResult}>
-                Error:
-                {' '}
-                {entry.error}
+                {`Error: ${entry.error}`}
+              </Text>
+            ) : null}
+            {entry.jsonPath ? (
+              <Text style={styles.transcriptResult}>
+                {`JSON: ${entry.jsonPath}`}
               </Text>
             ) : null}
           </View>
@@ -340,14 +357,12 @@ export default function InboxWatcherScreen() {
             if (entry.kind === 'segment') {
               return (
                 <Text key={entry.id} style={styles.logText}>
-                  [Watcher] segment{' '}
+                  [Watcher] segment
+                  {' '}
                   <Text style={styles.logTimestamp}>{entry.start}</Text>
-                  {' '}
-                  →
-                  {' '}
+                  {' → '}
                   <Text style={styles.logTimestamp}>{entry.end}</Text>
-                  :
-                  {' '}
+                  {': '}
                   <Text style={styles.logTranscript}>{entry.text}</Text>
                 </Text>
               )
@@ -355,12 +370,13 @@ export default function InboxWatcherScreen() {
             if (entry.kind === 'timeline') {
               return (
                 <Text key={entry.id} style={styles.logText}>
-                  [Watcher] timeline{' '}
+                  [Watcher] timeline
+                  {' '}
                   {entry.segments.map((segment, index) => (
                     <Text key={`${entry.id}-${segment.start}-${index}`}>
                       [
                       <Text style={styles.logTimestamp}>{segment.start}</Text>
-                      -
+                      {' - '}
                       <Text style={styles.logTimestamp}>{segment.end}</Text>
                       ]
                       {' '}
@@ -374,21 +390,20 @@ export default function InboxWatcherScreen() {
             if (entry.kind === 'token') {
               return (
                 <Text key={entry.id} style={styles.logText}>
-                  [Watcher] token{' '}
+                  [Watcher] token
+                  {' '}
                   <Text style={styles.logTimestamp}>{entry.start}</Text>
-                  {' '}
-                  →
-                  {' '}
+                  {' → '}
                   <Text style={styles.logTimestamp}>{entry.end}</Text>
-                  :
-                  {' '}
+                  {': '}
                   <Text style={styles.logTranscript}>{entry.text}</Text>
                 </Text>
               )
             }
             return (
               <Text key={entry.id} style={styles.logText}>
-                [Watcher] transcript{' '}
+                [Watcher] transcript
+                {' '}
                 <Text style={styles.logTranscript}>{entry.text}</Text>
               </Text>
             )

@@ -12,14 +12,21 @@ const DEFAULT_EXTENSIONS = ['.wav', '.mp3', '.m4a', '.flac', '.ogg']
 
 export class InboxWatcher {
   private readonly onFile: InboxWatcherOptions['onFile']
+
   private readonly pollIntervalMs: number
+
   private readonly extensions: string[]
+
   private readonly log?: InboxWatcherOptions['log']
 
   private timer: ReturnType<typeof setInterval> | null = null
+
   private isScanning = false
+
   private readonly seen = new Set<string>()
+
   private readonly queue: string[] = []
+
   private isProcessingQueue = false
 
   constructor(options: InboxWatcherOptions) {
@@ -82,27 +89,36 @@ export class InboxWatcher {
     if (this.seen.has(path)) return
     this.seen.add(path)
     this.queue.push(path)
-    this.processQueue()
+    void this.processQueue()
   }
 
   private async processQueue() {
     if (this.isProcessingQueue) return
     this.isProcessingQueue = true
     try {
-      while (this.queue.length) {
-        const filePath = this.queue.shift()
-        if (!filePath) continue
-        try {
-          await this.onFile(filePath)
-          this.seen.delete(filePath)
-        } catch (error) {
-          this.log?.('[InboxWatcher] onFile handler failed', filePath, error)
-          this.seen.delete(filePath)
-        }
-      }
+      await this.drainQueue()
     } finally {
       this.isProcessingQueue = false
     }
+  }
+
+  private async drainQueue(): Promise<void> {
+    if (this.queue.length === 0) {
+      return
+    }
+    const filePath = this.queue.shift()
+    if (!filePath) {
+      await this.drainQueue()
+      return
+    }
+    try {
+      await this.onFile(filePath)
+    } catch (error) {
+      this.log?.('[InboxWatcher] onFile handler failed', filePath, error)
+    } finally {
+      this.seen.delete(filePath)
+    }
+    await this.drainQueue()
   }
 }
 

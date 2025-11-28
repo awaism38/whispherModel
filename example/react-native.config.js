@@ -1,3 +1,4 @@
+/* eslint-disable import/no-extraneous-dependencies */
 const path = require('path');
 const iosPlatform = require('@react-native-community/cli-platform-ios');
 const pak = require('../package.json');

@@ -44,29 +44,6 @@ It's recommended to use `ndkVersion = "24.0.8215888"` (or above) in your root pr
 
 You will need to prebuild the project before using it. See [Expo guide](https://docs.expo.io/guides/using-libraries/#using-a-library-in-a-expo-project) for more details.
 
-## Add Microphone Permissions (Optional)
-
-If you want to use realtime transcribe, you need to add the microphone permission to your app.
-
-### iOS
-
-Add these lines to `ios/[YOU_APP_NAME]/info.plist`
-
-```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>This app requires microphone access in order to transcribe speech</string>
-```
-
-For tvOS, please note that the microphone is not supported.
-
-### Android
-
-Add the following line to `android/app/src/main/AndroidManifest.xml`
-
-```xml
-<uses-permission android:name="android.permission.RECORD_AUDIO" />
-```
-
 ## Tips & Tricks
 
 The [Tips & Tricks](docs/TIPS.md) document is a collection of tips and tricks for using `whisper.rn`.
@@ -88,132 +65,8 @@ const { result } = await promise
 // result: (The inference text result from audio file)
 ```
 
-## Voice Activity Detection (VAD)
-
-Voice Activity Detection allows you to detect speech segments in audio data using the Silero VAD model.
-
-#### Initialize VAD Context
-
-```typescript
-import { initWhisperVad } from 'whisper.rn'
-
-const vadContext = await initWhisperVad({
-  filePath: require('./assets/ggml-silero-v5.1.2.bin'), // VAD model file
-  useGpu: true, // Use GPU acceleration (iOS only)
-  nThreads: 4, // Number of threads for processing
-})
-```
-
-#### Detect Speech Segments
-
-##### From Audio Files
-
-```typescript
-// Detect speech in audio file (supports same formats as transcribe)
-const segments = await vadContext.detectSpeech(require('./assets/audio.wav'), {
-  threshold: 0.5, // Speech probability threshold (0.0-1.0)
-  minSpeechDurationMs: 250, // Minimum speech duration in ms
-  minSilenceDurationMs: 100, // Minimum silence duration in ms
-  maxSpeechDurationS: 30, // Maximum speech duration in seconds
-  speechPadMs: 30, // Padding around speech segments in ms
-  samplesOverlap: 0.1, // Overlap between analysis windows
-})
-
-// Also supports:
-// - File paths: vadContext.detectSpeech('path/to/audio.wav', options)
-// - HTTP URLs: vadContext.detectSpeech('https://example.com/audio.wav', options)
-// - Base64 WAV: vadContext.detectSpeech('data:audio/wav;base64,...', options)
-// - Assets: vadContext.detectSpeech(require('./assets/audio.wav'), options)
-```
-
-##### From Raw Audio Data
-
-```typescript
-// Detect speech in base64 encoded float32 PCM data
-const segments = await vadContext.detectSpeechData(base64AudioData, {
-  threshold: 0.5,
-  minSpeechDurationMs: 250,
-  minSilenceDurationMs: 100,
-  maxSpeechDurationS: 30,
-  speechPadMs: 30,
-  samplesOverlap: 0.1,
-})
-```
-
-#### Process Results
-
-```typescript
-segments.forEach((segment, index) => {
-  console.log(
-    `Segment ${index + 1}: ${segment.t0.toFixed(2)}s - ${segment.t1.toFixed(
-      2,
-    )}s`,
-  )
-  console.log(`Duration: ${(segment.t1 - segment.t0).toFixed(2)}s`)
-})
-```
-
-#### Release VAD Context
-
-```typescript
-await vadContext.release()
-// Or release all VAD contexts
-await releaseAllWhisperVad()
-```
-
-## Realtime Transcription
-
-The new `RealtimeTranscriber` provides enhanced realtime transcription with features like Voice Activity Detection (VAD), auto-slicing, and memory management.
-
-```js
-// If your RN packager is not enable package exports support, use whisper.rn/src/realtime-transcription
-import { RealtimeTranscriber } from 'whisper.rn/realtime-transcription'
-import { AudioPcmStreamAdapter } from 'whisper.rn/realtime-transcription/adapters'
-import RNFS from 'react-native-fs' // or any compatible filesystem
-
-// Dependencies
-const whisperContext = await initWhisper({
-  /* ... */
-})
-const vadContext = await initWhisperVad({
-  /* ... */
-})
-const audioStream = new AudioPcmStreamAdapter() // requires @fugood/react-native-audio-pcm-stream
-
-// Create transcriber
-const transcriber = new RealtimeTranscriber(
-  { whisperContext, vadContext, audioStream, fs: RNFS },
-  {
-    audioSliceSec: 30,
-    vadPreset: 'default',
-    autoSliceOnSpeechEnd: true,
-    transcribeOptions: { language: 'en' },
-  },
-  {
-    onTranscribe: (event) => console.log('Transcription:', event.data?.result),
-    onVad: (event) => console.log('VAD:', event.type, event.confidence),
-    onStatusChange: (isActive) =>
-      console.log('Status:', isActive ? 'ACTIVE' : 'INACTIVE'),
-    onError: (error) => console.error('Error:', error),
-  },
-)
-
-// Start/stop transcription
-await transcriber.start()
-await transcriber.stop()
-```
-
-**Dependencies:**
-
-- `@fugood/react-native-audio-pcm-stream` for `AudioPcmStreamAdapter`
-- Compatible filesystem module (e.g., `react-native-fs`). See [filesystem interface](src/utils/WavFileWriter.ts#L9-L16) for TypeScript definition
-
-**Custom Audio Adapters:**
-You can create custom audio stream adapters by implementing the [AudioStreamInterface](src/realtime-transcription/types.ts#L21-L30). This allows integration with different audio sources or custom audio processing pipelines.
-
-**Example:** See [complete example](example/src/RealtimeTranscriber.tsx) for full implementation including file simulation and UI.
-
-Please visit the [Documentation](docs/) for more details.
+> **Note**  
+> Realtime transcription and voice-activity detection were removed in this build. `whisper.rn` now focuses solely on high-quality batch transcription from audio files using the existing native bridge.
 
 ## Usage with assets
 
@@ -319,59 +172,6 @@ We have provided a mock version of `whisper.rn` for testing purpose you can use 
 ```js
 jest.mock('whisper.rn', () => require('whisper.rn/jest-mock'))
 ```
-
-## Deprecated APIs
-
-### `transcribeRealtime` (Deprecated)
-
-> ⚠️ **Deprecated**: Use `RealtimeTranscriber` instead for enhanced features and better performance.
-
-```js
-const { stop, subscribe } = await whisperContext.transcribeRealtime(options)
-
-subscribe((evt) => {
-  const { isCapturing, data, processTime, recordingTime } = evt
-  console.log(
-    `Realtime transcribing: ${isCapturing ? 'ON' : 'OFF'}\n` +
-      `Result: ${data.result}\n\n` +
-      `Process time: ${processTime}ms\n` +
-      `Recording time: ${recordingTime}ms`,
-  )
-  if (!isCapturing) console.log('Finished realtime transcribing')
-})
-```
-
-In iOS, You may need to change the Audio Session so that it can be used with other audio playback, or to optimize the quality of the recording. So we have provided AudioSession utilities for you:
-
-Option 1 - Use options in transcribeRealtime:
-
-```js
-import { AudioSessionIos } from 'whisper.rn'
-
-const { stop, subscribe } = await whisperContext.transcribeRealtime({
-  audioSessionOnStartIos: {
-    category: AudioSessionIos.Category.PlayAndRecord,
-    options: [AudioSessionIos.CategoryOption.MixWithOthers],
-    mode: AudioSessionIos.Mode.Default,
-  },
-  audioSessionOnStopIos: 'restore', // Or an AudioSessionSettingIos
-})
-```
-
-Option 2 - Manage the Audio Session in anywhere:
-
-```js
-import { AudioSessionIos } from 'whisper.rn'
-
-await AudioSessionIos.setCategory(AudioSessionIos.Category.PlayAndRecord, [
-  AudioSessionIos.CategoryOption.MixWithOthers,
-])
-await AudioSessionIos.setMode(AudioSessionIos.Mode.Default)
-await AudioSessionIos.setActive(true)
-// Then you can start do recording
-```
-
-In Android, you may need to request the microphone permission by [`PermissionAndroid`](https://reactnative.dev/docs/permissionsandroid).
 
 ## Apps using `whisper.rn`
 

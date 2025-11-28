@@ -5,12 +5,12 @@
 whisper.rn is a React Native binding for [whisper.cpp](https://github.com/ggerganov/whisper.cpp), enabling high-performance inference of OpenAI's Whisper automatic speech recognition (ASR) model on iOS and Android devices.
 
 **Key Features:**
-- Native speech-to-text transcription via whisper.cpp
-- Voice Activity Detection (VAD) using Silero VAD model
-- Realtime transcription with auto-slicing and memory management
+- Native batch speech-to-text transcription via whisper.cpp
 - Core ML support for iOS (encoder acceleration)
 - Metal/GPU acceleration support
 - JSI (JavaScript Interface) bindings for efficient ArrayBuffer transfers
+
+> **Note:** This repository snapshot intentionally strips realtime transcription and VAD; only audio-file transcription is available.
 
 ## General
 
