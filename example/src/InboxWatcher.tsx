@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, View, Text, StyleSheet } from 'react-native'
 import RNFS from 'react-native-fs'
+import DocumentPicker from 'react-native-document-picker'
 import { initWhisper } from '../../src'
 import type { WhisperContext } from '../../src'
 import { Button } from './Button'
@@ -240,6 +241,39 @@ export default function InboxWatcherScreen() {
     [appendLog, pushLog],
   )
 
+  const pickAudioFile = useCallback(async () => {
+    try {
+      const selection = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.audio],
+        presentationStyle: 'fullScreen',
+        copyTo: 'documentDirectory',
+      })
+      const sourceUri = selection.fileCopyUri ?? selection.uri
+      if (!sourceUri) {
+        appendLog('[Picker] missing URI for selection')
+        return
+      }
+      appendLog('[Picker] selected', selection.name ?? sourceUri)
+      await ensureInboxDirs(appendLog)
+      const normalizedSource = sourceUri.startsWith('file://')
+        ? sourceUri.replace('file://', '')
+        : sourceUri
+      const safeName =
+        selection.name?.replace(/[^\w.-]/g, '_') ??
+        `picked-${Date.now()}.bin`
+      const destPath = `${inboxDir}/picked-${Date.now()}-${safeName}`
+      await RNFS.copyFile(normalizedSource, destPath)
+      appendLog('[Picker] copied to inbox', destPath)
+      await handleFile(destPath)
+    } catch (error: any) {
+      if (DocumentPicker.isCancel(error)) {
+        appendLog('[Picker] cancelled')
+      } else {
+        appendLog('[Picker] failed', String(error))
+      }
+    }
+  }, [appendLog, handleFile])
+
   useEffect(() => {
     ensureInboxDirs(appendLog).catch((error) => appendLog('ensureInboxDirs', error))
 
@@ -301,6 +335,7 @@ export default function InboxWatcherScreen() {
           onPress={async () => ensureInboxDirs(appendLog)}
         />
         <Button title="Initialize Whisper (base asset)" onPress={initializeWhisper} />
+        <Button title="Pick Audio File" onPress={pickAudioFile} />
         <Button
           title={isWatching ? 'Stop Watcher' : 'Start Watcher'}
           onPress={isWatching ? stopWatcher : startWatcher}
