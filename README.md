@@ -163,7 +163,7 @@ The example app provide a simple UI for testing the functions.
 Used Whisper model: `tiny.en` in https://huggingface.co/ggerganov/whisper.cpp
 Sample file: `jfk.wav` in https://github.com/ggerganov/whisper.cpp/tree/master/samples
 
-Please follow the [Development Workflow section of contributing guide](./CONTRIBUTING.md#development-workflow) to run the example app.
+See `walkthrough.md` for steps to run the example app locally.
 
 ## Mock `whisper.rn`
 
@@ -181,10 +181,6 @@ jest.mock('whisper.rn', () => require('whisper.rn/jest-mock'))
 ## Node.js binding
 
 - [whisper.node](https://github.com/mybigday/whisper.node): An another Node.js binding of `whisper.cpp` but made API same as `whisper.rn`.
-
-## Contributing
-
-See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
 
 ## Troubleshooting
 
