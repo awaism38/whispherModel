@@ -1,0 +1,42 @@
+diff --git a/node_modules/@react-native-community/cli-server-api/build/index.d.ts b/node_modules/@react-native-community/cli-server-api/build/index.d.ts
+index d07f351..2db2869 100644
+--- a/node_modules/@react-native-community/cli-server-api/build/index.d.ts
++++ b/node_modules/@react-native-community/cli-server-api/build/index.d.ts
+@@ -20,5 +20,6 @@ export declare function createDevServerMiddleware(options: MiddlewareOptions): {
+     };
+     middleware: connect.Server;
+ };
++export declare const indexPageMiddleware: connect.HandleFunction;
+ export {};
+ //# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/@react-native-community/cli-server-api/build/index.js b/node_modules/@react-native-community/cli-server-api/build/index.js
+index 6410274..35645fe 100644
+--- a/node_modules/@react-native-community/cli-server-api/build/index.js
++++ b/node_modules/@react-native-community/cli-server-api/build/index.js
+@@ -3,7 +3,7 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true
+ });
+-exports.createDevServerMiddleware = createDevServerMiddleware;
++exports.indexPageMiddleware = exports.createDevServerMiddleware = void 0;
+ function _compression() {
+   const data = _interopRequireDefault(require("compression"));
+   _compression = function () {
+@@ -48,6 +48,8 @@ var _systraceProfileMiddleware = _interopRequireDefault(require("./systraceProfi
+ var _createMessageSocketEndpoint = _interopRequireDefault(require("./websocket/createMessageSocketEndpoint"));
+ var _createEventsSocketEndpoint = _interopRequireDefault(require("./websocket/createEventsSocketEndpoint"));
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
++const indexPageMiddleware = _indexPageMiddleware.default;
++exports.indexPageMiddleware = indexPageMiddleware;
+ function createDevServerMiddleware(options) {
+   const messageSocketEndpoint = (0, _createMessageSocketEndpoint.default)();
+   const broadcast = messageSocketEndpoint.broadcast;
+@@ -76,5 +78,6 @@ function createDevServerMiddleware(options) {
+     middleware
+   };
+ }
++exports.createDevServerMiddleware = createDevServerMiddleware;
+ 
+ //# sourceMappingURL=/Users/thymikee/Developer/rnccli/packages/cli-server-api/build/index.js.map
+\ No newline at end of file

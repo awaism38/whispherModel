@@ -1,0 +1,8 @@
+yarn run v1.22.22
+warning ../../../package.json: No license field
+warning Skipping preferred cache folder "/Users/mackmackbookbook/Library/Caches/Yarn" because it is not writable.
+warning Selected the next writable cache folder in the list, will be "/var/folders/7m/4252sz_11zq174xz4c78zs2r0000gn/T/.yarn-cache-501".
+$ react-native start
+error: unknown command 'start'
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
