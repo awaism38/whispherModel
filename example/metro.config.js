@@ -1,11 +1,11 @@
 /* eslint-disable import/no-extraneous-dependencies */
 const path = require('path')
 const escape = require('escape-string-regexp')
-const exclusionList = require('metro-config/src/defaults/exclusionList')
 
 // eslint-disable-next-line import/no-unresolved
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config')
-const defaultAssetExts = require('metro-config/src/defaults/defaults').assetExts
+const exclusionList = require('metro-config/private/defaults/exclusionList').default
+const defaultAssetExts = require('metro-config/private/defaults/defaults').assetExts
 const pak = require('../package.json')
 
 const root = path.resolve(__dirname, '..')
@@ -21,7 +21,7 @@ const config = {
   // We need to make sure that only one version is loaded for peerDependencies
   // So we block them at the root, and alias them to the versions in example's node_modules
   resolver: {
-    blacklistRE: exclusionList(
+    blockList: exclusionList(
       modules.map(
         (m) =>
           new RegExp(`^${escape(path.join(root, 'node_modules', m))}\\/.*$`),

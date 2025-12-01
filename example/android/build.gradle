@@ -1,23 +1,27 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-
 buildscript {
     ext {
-        buildToolsVersion = "35.0.0"
+        buildToolsVersion = "36.0.0"      // updated
         minSdkVersion = 24
-        compileSdkVersion = 35
-        targetSdkVersion = 34
-        ndkVersion = "27.3.13750724"
-        kotlinVersion = "1.9.25"
+        compileSdkVersion = 36            // updated
+        targetSdkVersion = 36             // updated
+        ndkVersion = "27.1.12297006"     // updated
+        kotlinVersion = "2.1.20"         // updated
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle")
-        classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("com.android.tools.build:gradle:8.3.1")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
     }
 }
 
-apply plugin: "com.facebook.react.rootproject"
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
